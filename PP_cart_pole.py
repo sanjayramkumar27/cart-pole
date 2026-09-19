@@ -3,6 +3,7 @@ from mujoco.glfw import glfw
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from scipy.signal import place_poles
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
 simend = 100 #simulation time
@@ -21,21 +22,19 @@ def init_controller(model,data):
     pass
 
 outc=[]
+
+
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
-    cur_theta = data.qpos[1]
-    cur_theta_dot = data.qvel[1]
-    cur_x = data.qpos[0]
-    cur_x_dot = data.qvel[0]
-    kp1 = -0.05
-    kd1 = -0.01
-    theta_ref = kp1*cur_x+kd1*cur_x_dot
-    kp = 40
-    kd=0.8
-    out = np.clip(kp*(cur_theta-theta_ref) + kd*cur_theta_dot, -10, 10)
+    m1, l, g = 1.0, 1.0, 9.81   # replace with yours
+    A = np.array([[0,1,0,0],[0,0,-0.981,0],[0,0,0,1],[0,0,21.582,0]])
+    B = np.array([[0],[1/m1],[0],[-2/(m1*l)]])
+    K = place_poles(A,B,[-3,-4,-5,-6]).gain_matrix
+    print(K)
+    X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
+    out = -K@X.T
     outc.append(out)
-    print(out)
-    data.ctrl=out
+    data.ctrl = out
 
 
 def keyboard(window, key, scancode, act, mods):
