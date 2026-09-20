@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
-simend = 100 #simulation time
+simend = 10 #simulation time
 print_camera_config = 0 #set to 1 to print camera config
                         #this is useful for initializing view of the model)
 
@@ -37,7 +37,7 @@ def controller(model, data):
     kd=3
     out = np.clip(kp*(cur_theta-theta_ref) + kd*cur_theta_dot, -10, 10)
     outc.append(out)
-    print(out)
+    #print(out)
     data.ctrl=out
 
 
@@ -143,7 +143,7 @@ def keyboard(window, key, scancode, act, mods):
         ref["x"] = max(ref["x"] - STEP, -XMAX)
         mj.mj_forward(model, data)
     glfw.set_window_title(window, f"x_ref = {ref['x']:.2f}")
-    
+
 
 # install GLFW mouse and keyboard callbacks
 glfw.set_key_callback(window, keyboard)
@@ -208,6 +208,28 @@ while not glfw.window_should_close(window):
 glfw.terminate()
 t=np.linspace(0,data.time,len(theta))
 tc=np.linspace(0,data.time,len(outc))
+
+def settling_time(t, sig, tol, t_start=0.0):
+    outside = np.abs(sig) > tol
+    if not outside.any():
+        return 0.0
+    last = np.where(outside)[0][-1]
+    if last == len(t) - 1:
+        return np.inf              
+    return t[last + 1] - t_start
+
+xt = settling_time(t,x,0.025)
+thetat = settling_time(t,theta,0.1)
+
+print("x Settling time = ", xt)
+print("theta Settling time = ", thetat)
+print("Peak Force = ", np.max(outc))
+
+sum=0
+for i in range(len(outc)):
+    sum = sum + (outc[i]**2)*data.time/len(outc)
+
+print("Total Control Effort = ", sum)
 plt.figure()
 plt.subplot(3,1,1)
 plt.plot(t, theta)

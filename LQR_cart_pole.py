@@ -7,7 +7,7 @@ from scipy.signal import place_poles
 from scipy.linalg import solve_continuous_are
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
-simend = 100 #simulation time
+simend = 10 #simulation time
 print_camera_config = 0 #set to 1 to print camera config
                         #this is useful for initializing view of the model)
 
@@ -32,15 +32,15 @@ outc=[]
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
     m1, l, g = 1.0, 1.0, 9.81 
-    A = np.array([[0,1,0,0],[0,0,-0.981,0],[0,0,0,1],[0,0,21.582,0]])
-    B = np.array([[0],[1/m1],[0],[-2/(m1*l)]])
+    A = np.array([[0,1,0,0],[0,0,-0.7178,0],[0,0,0,1],[0,0,15.972,0]])
+    B = np.array([[0],[0.9756],[0],[-1.4634]])
     Q = np.diag([10,1,10,1])
     R = np.array([[0.5]])
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
     X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
     X_ref = np.array([ref['x'],0,0,0])
-    out = -K@(X.T - X_ref.T)
+    out = np.clip(-K@(X.T - X_ref.T), -10, 10)
     outc.append(out)
     data.ctrl = out
 
@@ -211,6 +211,29 @@ while not glfw.window_should_close(window):
 glfw.terminate()
 t=np.linspace(0,data.time,len(theta))
 tc=np.linspace(0,data.time,len(outc))
+
+def settling_time(t, sig, tol, t_start=0.0):
+    outside = np.abs(sig) > tol
+    if not outside.any():
+        return 0.0
+    last = np.where(outside)[0][-1]
+    if last == len(t) - 1:
+        return np.inf              
+    return t[last + 1] - t_start
+
+xt = settling_time(t,x,0.1)
+thetat = settling_time(t,theta,0.1)
+
+print("x Settling time = ", xt)
+print("theta Settling time = ", thetat)
+print("Peak Force = ", np.max(outc))
+sum=0
+
+for i in range(len(outc)):
+    sum = sum + (outc[i]**2)*data.time/len(outc)
+
+print("Total Control Effort = ", sum)
+
 plt.figure()
 plt.subplot(3,1,1)
 plt.plot(t, theta)
