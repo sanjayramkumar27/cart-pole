@@ -7,7 +7,7 @@ from scipy.signal import place_poles
 from scipy.linalg import solve_continuous_are
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
-simend = 10 #simulation time
+simend = 100 #simulation time
 print_camera_config = 0 #set to 1 to print camera config
                         #this is useful for initializing view of the model)
 
@@ -169,16 +169,18 @@ init_controller(model,data)
 mj.set_mjcb_control(controller)
 
 data.qpos[0]=0
-data.qpos[1]=np.deg2rad(10)
+data.qpos[1]=np.deg2rad(0)
 
 theta=[]
 x=[]
 
+t_push, dur, F = 2.0, 0.05, 10.0
 
 while not glfw.window_should_close(window):
     time_prev = data.time
 
     while (data.time - time_prev < 1.0/60.0):
+        data.xfrc_applied[1, 0] = F if t_push <= data.time < t_push + dur else 0.0
         mj.mj_step(model, data)
 
     theta.append(data.qpos[1])
