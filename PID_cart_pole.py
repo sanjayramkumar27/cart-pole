@@ -20,6 +20,9 @@ def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
     pass
 
+ref = {"x": 0.0}
+STEP, XMAX = 0.1, 2.0  
+
 outc=[]
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
@@ -29,7 +32,7 @@ def controller(model, data):
     cur_x_dot = data.qvel[0]
     kp1 = -0.05
     kd1 = -0.02
-    theta_ref = kp1*cur_x+kd1*cur_x_dot
+    theta_ref = kp1*(cur_x - ref['x'])+kd1*cur_x_dot
     kp = 40
     kd=3
     out = np.clip(kp*(cur_theta-theta_ref) + kd*cur_theta_dot, -10, 10)
@@ -130,6 +133,17 @@ mj.mjv_defaultCamera(cam)
 mj.mjv_defaultOption(opt)
 scene = mj.MjvScene(model, maxgeom=10000)
 context = mj.MjrContext(model, mj.mjtFontScale.mjFONTSCALE_150.value)
+
+def keyboard(window, key, scancode, act, mods):
+    if act == glfw.RELEASE:
+        return
+    if key == glfw.KEY_RIGHT:
+        ref["x"] = min(ref["x"] + STEP, XMAX)
+    elif key == glfw.KEY_LEFT:
+        ref["x"] = max(ref["x"] - STEP, -XMAX)
+        mj.mj_forward(model, data)
+    glfw.set_window_title(window, f"x_ref = {ref['x']:.2f}")
+    
 
 # install GLFW mouse and keyboard callbacks
 glfw.set_key_callback(window, keyboard)

@@ -22,12 +22,16 @@ def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
     pass
 
-outc=[]
 
+ref = {"x": 0.0}
+STEP, XMAX = 0.1, 2.0   
+
+
+outc=[]
 
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
-    m1, l, g = 1.0, 1.0, 9.81   # replace with yours
+    m1, l, g = 1.0, 1.0, 9.81 
     A = np.array([[0,1,0,0],[0,0,-0.981,0],[0,0,0,1],[0,0,21.582,0]])
     B = np.array([[0],[1/m1],[0],[-2/(m1*l)]])
     Q = np.diag([10,1,10,1])
@@ -35,7 +39,8 @@ def controller(model, data):
     P = solve_continuous_are(A, B, Q, R)
     K = np.linalg.solve(R, B.T @ P)
     X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
-    out = -K@X.T
+    X_ref = np.array([ref['x'],0,0,0])
+    out = -K@(X.T - X_ref.T)
     outc.append(out)
     data.ctrl = out
 
@@ -132,6 +137,16 @@ mj.mjv_defaultCamera(cam)
 mj.mjv_defaultOption(opt)
 scene = mj.MjvScene(model, maxgeom=10000)
 context = mj.MjrContext(model, mj.mjtFontScale.mjFONTSCALE_150.value)
+def keyboard(window, key, scancode, act, mods):
+    if act == glfw.RELEASE:
+        return
+    if key == glfw.KEY_RIGHT:
+        ref["x"] = min(ref["x"] + STEP, XMAX)
+    elif key == glfw.KEY_LEFT:
+        ref["x"] = max(ref["x"] - STEP, -XMAX)
+        mj.mj_forward(model, data)
+    glfw.set_window_title(window, f"x_ref = {ref['x']:.2f}")
+
 
 # install GLFW mouse and keyboard callbacks
 glfw.set_key_callback(window, keyboard)
