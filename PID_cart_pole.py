@@ -28,10 +28,10 @@ def controller(model, data):
     cur_x = data.qpos[0]
     cur_x_dot = data.qvel[0]
     kp1 = -0.05
-    kd1 = -0.01
+    kd1 = -0.02
     theta_ref = kp1*cur_x+kd1*cur_x_dot
     kp = 40
-    kd=0.8
+    kd=3
     out = np.clip(kp*(cur_theta-theta_ref) + kd*cur_theta_dot, -10, 10)
     outc.append(out)
     print(out)

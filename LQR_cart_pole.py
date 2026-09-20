@@ -4,6 +4,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from scipy.signal import place_poles
+from scipy.linalg import solve_continuous_are
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
 simend = 100 #simulation time
@@ -29,7 +30,10 @@ def controller(model, data):
     m1, l, g = 1.0, 1.0, 9.81   # replace with yours
     A = np.array([[0,1,0,0],[0,0,-0.981,0],[0,0,0,1],[0,0,21.582,0]])
     B = np.array([[0],[1/m1],[0],[-2/(m1*l)]])
-    K = place_poles(A,B,[-3,-4,-5,-6]).gain_matrix
+    Q = np.diag([10,1,10,1])
+    R = np.array([[0.5]])
+    P = solve_continuous_are(A, B, Q, R)
+    K = np.linalg.solve(R, B.T @ P)
     X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
     out = -K@X.T
     outc.append(out)
