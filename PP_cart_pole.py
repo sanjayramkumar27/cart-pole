@@ -168,7 +168,7 @@ data.qpos[1]=np.deg2rad(0)
 theta=[]
 x=[]
 
-t_push, dur, F = 2.0, 0.05, 10.0
+t_push, dur, F = 2.0, 0.1, 15.0
 
 while not glfw.window_should_close(window):
     time_prev = data.time

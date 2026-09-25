@@ -7,7 +7,7 @@ from scipy.signal import place_poles
 from scipy.linalg import solve_continuous_are
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
-simend = 100 #simulation time
+simend = 10 #simulation time
 print_camera_config = 0 #set to 1 to print camera config
                         #this is useful for initializing view of the model)
 
@@ -174,7 +174,7 @@ data.qpos[1]=np.deg2rad(0)
 theta=[]
 x=[]
 
-t_push, dur, F = 2.0, 0.05, 10.0
+t_push, dur, F = 2.0, 0.1, 15.0
 
 while not glfw.window_should_close(window):
     time_prev = data.time
@@ -223,7 +223,7 @@ def settling_time(t, sig, tol, t_start=0.0):
         return np.inf              
     return t[last + 1] - t_start
 
-xt = settling_time(t,x,0.1)
+xt = settling_time(t,x,0.025)
 thetat = settling_time(t,theta,0.1)
 
 print("x Settling time = ", xt)
