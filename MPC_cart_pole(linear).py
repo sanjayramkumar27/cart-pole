@@ -1,10 +1,13 @@
 import mujoco as mj
 from mujoco.glfw import glfw
 import numpy as np
+from scipy import sparse
 import os
 import matplotlib.pyplot as plt
 from scipy.signal import place_poles
-from scipy.linalg import solve_continuous_are
+from scipy.signal import cont2discrete
+from scipy.linalg import solve_discrete_are
+import osqp
 
 xml_path = 'model.xml' #xml file (assumes this is in the same folder as this file)
 simend = 10 #simulation time
@@ -28,21 +31,63 @@ STEP, XMAX = 0.1, 2.0
 
 
 outc=[]
+A = np.array([[0, 1, 0, 0],
+              [0, 0, -0.7178, 0],
+              [0, 0, 0, 1],
+              [0, 0, 15.79, 0]])
+B = np.array([[0], [0.9756], [0], [-1.4634]])
+Q = np.diag([10,1,10,1])
+R = np.array([[0.5]])
+C = np.eye(4)
+D = np.zeros((4,1))
+dt = 0.02
+
+Ad, Bd, _, _, _ = cont2discrete((A,B,C,D), dt, "zoh")
+
+nx,nu = 4,1
+N=10
+
+P_inf = solve_discrete_are(Ad, Bd, Q, R)
+P_diag = [Q] * N + [P_inf] + [R] * N
+P = sparse.block_diag(P_diag, format='csc') * 2.0
+q = np.zeros((N + 1) * nx + N * nu)
+
+Ax = sparse.kron(sparse.eye(N + 1), -sparse.eye(nx)) + \
+     sparse.kron(sparse.eye(N + 1, k=-1), Ad)
+Bu = sparse.kron(sparse.eye(N + 1, N, k=-1), Bd)
+A_dyn = sparse.hstack([Ax, Bu])
+
+l_dyn = np.zeros((N + 1) * nx)
+u_dyn = np.zeros((N + 1) * nx)
+
+x_min = np.array([-2.9, -np.inf, -np.inf, -np.inf])
+x_max = np.array([ 2.9,  np.inf,  np.inf,  np.inf])
+u_min = np.array([-10.0])
+u_max = np.array([ 10.0])
+
+l_bounds = np.hstack([np.tile(x_min, N + 1), np.tile(u_min, N)])
+u_bounds = np.hstack([np.tile(x_max, N + 1), np.tile(u_max, N)])
+
+A_bounds = sparse.eye((N + 1) * nx + N * nu)
+A_qp = sparse.vstack([A_dyn, A_bounds], format='csc')
+
+l_qp = np.hstack([l_dyn, l_bounds])
+u_qp = np.hstack([u_dyn, u_bounds])
+
+prob = osqp.OSQP()
+prob.setup(
+    P=P, q=q, A=A_qp, l=l_qp, u=u_qp,
+    warm_start=True,
+    verbose=False,
+    eps_abs=1e-4,
+    eps_rel=1e-4
+)
+
+u_control_offset = (N + 1) * nx
 
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
-    m1, l, g = 1.0, 1.0, 9.81 
-    A = np.array([[0,1,0,0],[0,0,-0.7178,0],[0,0,0,1],[0,0,15.79,0]])
-    B = np.array([[0],[0.9756],[0],[-1.4634]])
-    Q = np.diag([10,1,10,1])
-    R = np.array([[0.5]])
-    P = solve_continuous_are(A, B, Q, R)
-    K = np.linalg.solve(R, B.T @ P)
-    X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
-    X_ref = np.array([ref['x'],0,0,0])
-    out = np.clip(-K@(X.T - X_ref.T), -10, 10)
-    outc.append(out)
-    data.ctrl = out
+    pass
 
 
 def keyboard(window, key, scancode, act, mods):
@@ -181,6 +226,23 @@ while not glfw.window_should_close(window):
 
     while (data.time - time_prev < 1.0/60.0):
         data.xfrc_applied[1, 0] = F if t_push <= data.time < t_push + dur else 0.0
+        current_x = np.array([
+            data.qpos[0] - ref["x"],
+            data.qvel[0],
+            data.qpos[1],
+            data.qvel[1]
+        ])
+        l_qp[:nx] = -current_x 
+        u_qp[:nx] = -current_x
+        prob.update(l=l_qp, u=u_qp)
+        res = prob.solve()
+        if res.info.status == 'solved':
+            u_optimal = res.x[u_control_offset]
+        else:
+            u_optimal = 0.0
+        #print(u_optimal)
+        data.ctrl[0] = u_optimal
+        outc.append(u_optimal)
         mj.mj_step(model, data)
 
     theta.append(data.qpos[1])

@@ -29,7 +29,7 @@ outc=[]
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
     m1, l, g = 1.0, 1.0, 9.81  
-    A = np.array([[0,1,0,0],[0,0,-0.7178,0],[0,0,0,1],[0,0,15.972,0]])
+    A = np.array([[0,1,0,0],[0,0,-0.7178,0],[0,0,0,1],[0,0,15.79,0]])
     B = np.array([[0],[0.9756],[0],[-1.4634]])
     K = place_poles(A,B,[-3,-4,-5,-6]).gain_matrix
     X = np.array([data.qpos[0],data.qvel[0],data.qpos[1], data.qvel[1]])
