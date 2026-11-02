@@ -39,6 +39,7 @@ def controller(model, data):
     outc.append(out)
     #print(out)
     data.ctrl=out
+    rec.log(out, ref["x"])
 
 
 def keyboard(window, key, scancode, act, mods):
@@ -162,6 +163,9 @@ cam.lookat =np.array([ 0.029271066813332226 , -0.0002043539252718035 , 0.5611881
 #initialize the controller
 init_controller(model,data)
 
+from recorder import Recorder
+rec = Recorder("PID", model, data, t_push=2.0, dur=0.1, F=15.0) 
+
 #set the controller
 mj.set_mjcb_control(controller)
 
@@ -176,7 +180,7 @@ t_push, dur, F = 2.0, 0.1, 15.0
 while not glfw.window_should_close(window):
     time_prev = data.time
 
-    while (data.time - time_prev < 1.0/60.0):
+    for _ in range(rec.steps_per_frame):
         data.xfrc_applied[1, 0] = F if t_push <= data.time < t_push + dur else 0.0
         mj.mj_step(model, data)
 
@@ -200,6 +204,7 @@ while not glfw.window_should_close(window):
     mj.mjv_updateScene(model, data, opt, None, cam,
                        mj.mjtCatBit.mjCAT_ALL.value, scene)
     mj.mjr_render(viewport, scene, context)
+    rec.grab(window, glfw, context)
 
     # swap OpenGL buffers (blocking call due to v-sync)
     glfw.swap_buffers(window)
@@ -208,6 +213,7 @@ while not glfw.window_should_close(window):
     glfw.poll_events()
 
 glfw.terminate()
+rec.finish()
 t=np.linspace(0,data.time,len(theta))
 tc=np.linspace(0,data.time,len(outc))
 

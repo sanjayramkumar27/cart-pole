@@ -37,6 +37,7 @@ def controller(model, data):
     out = np.clip(-K@(X.T - X_ref.T), -10, 10)
     outc.append(out)
     data.ctrl = out
+    rec.log(out, ref["x"])
 
 
 def keyboard(window, key, scancode, act, mods):
@@ -125,6 +126,8 @@ glfw.init()
 window = glfw.create_window(1200, 900, "Demo", None, None)
 glfw.make_context_current(window)
 glfw.swap_interval(1)
+from recorder import Recorder
+rec = Recorder("PP", model, data, t_push=2.0, dur=0.1, F=15.0)   
 
 # initialize visualization data structures
 mj.mjv_defaultCamera(cam)
@@ -173,9 +176,9 @@ t_push, dur, F = 2.0, 0.1, 15.0
 while not glfw.window_should_close(window):
     time_prev = data.time
 
-    while (data.time - time_prev < 1.0/60.0):
-        data.xfrc_applied[1, 0] = F if t_push <= data.time < t_push + dur else 0.0
-        mj.mj_step(model, data)
+    for _ in range(rec.steps_per_frame):
+            data.xfrc_applied[1, 0] = F if t_push <= data.time < t_push + dur else 0.0
+            mj.mj_step(model, data)
 
     theta.append(data.qpos[1])
     x.append(data.qpos[0])
@@ -197,6 +200,7 @@ while not glfw.window_should_close(window):
     mj.mjv_updateScene(model, data, opt, None, cam,
                        mj.mjtCatBit.mjCAT_ALL.value, scene)
     mj.mjr_render(viewport, scene, context)
+    rec.grab(window, glfw, context)
 
     # swap OpenGL buffers (blocking call due to v-sync)
     glfw.swap_buffers(window)
@@ -206,6 +210,7 @@ while not glfw.window_should_close(window):
 
 
 glfw.terminate()
+rec.finish()
 t=np.linspace(0,data.time,len(theta))
 tc=np.linspace(0,data.time,len(outc))
 
